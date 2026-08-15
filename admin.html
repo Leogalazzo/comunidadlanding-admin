@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel Admin - Comunidad Emprendedora</title>
+<link rel="shortcut icon" href="foco-nuevo-rem.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<!-- Firebase (compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="cloudinary-config.js"></script>
+
+<style>
+    :root{
+        --canvas:#F5F6F8;
+        --ink:#14151A;
+        --ink-soft:#6B7280;
+        --line:#E7E8EC;
+        --accent:#FBBF24;
+        --accent-dark:#D89B0A;
+        --danger:#DC2626;
+        --danger-soft:#FEF2F2;
+        --success:#16A34A;
+        --success-soft:#F0FDF4;
+        --pending:#B45309;
+        --pending-soft:#FFFBEB;
+    }
+    body { font-family: 'Inter', sans-serif; background: var(--canvas); color: var(--ink); }
+    .bg-yellow-comunidad { background-color: var(--accent); }
+    .text-yellow-comunidad { color: var(--accent); }
+    .border-yellow-comunidad { border-color: var(--accent); }
+    .nav-item.active { background-color: var(--accent); color: #000; }
+    .panel { display: none; }
+    .panel.active { display: block; animation: fadeUp .35s ease; }
+    @keyframes fadeUp { from { opacity:0; transform: translateY(6px);} to {opacity:1; transform:none;} }
+
+    /* Toast */
+    .toast { transition: all .3s cubic-bezier(.16,1,.3,1); }
+
+    /* Modal */
+    .modal { position: fixed; inset: 0; z-index: 60; display:flex; align-items:center; justify-content:center; padding:1rem;
+             background: rgba(15,15,20,.55); backdrop-filter: blur(3px);
+             opacity:0; pointer-events:none; transition: opacity .18s ease; }
+    .modal.active { opacity:1; pointer-events:auto; }
+    .modal-panel { transform: translateY(14px) scale(.97); transition: transform .2s cubic-bezier(.16,1,.3,1); }
+    .modal.active .modal-panel { transform: none; }
+
+    /* Cards */
+    .card { background:#fff; border:1px solid var(--line); border-radius:1.25rem; }
+    .stat-chip { background:#fff; border:1px solid var(--line); border-radius:1rem; }
+
+    .field {
+        width:100%; padding:.85rem 1rem; border-radius: .9rem; background:#F9FAFB;
+        border:1px solid var(--line); font-size:.875rem; outline:none; transition:.15s;
+    }
+    .field:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(251,191,36,.25); background:#fff; }
+    .field-label { font-size:.7rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color: var(--ink-soft); margin-bottom:.4rem; display:block; }
+
+    .btn-icon { width:2.25rem; height:2.25rem; border-radius:9999px; display:flex; align-items:center; justify-content:center; transition:.15s; flex-shrink:0; }
+    .btn-primary { background:var(--ink); color:#fff; font-weight:700; border-radius:.9rem; padding:.85rem 1.5rem; font-size:.875rem; transition:.15s; }
+    .btn-primary:hover { background:#000; transform: translateY(-1px); }
+    .btn-accent { background:var(--accent); color:#000; font-weight:700; border-radius:.9rem; padding:.75rem 1.25rem; font-size:.8rem; transition:.15s; }
+    .btn-accent:hover { background:var(--accent-dark); transform: translateY(-1px); }
+
+    .avatar { display:flex; align-items:center; justify-content:center; font-weight:800; color:#fff; flex-shrink:0; }
+
+    .filter-chip { border:1px solid var(--line); background:#fff; border-radius:9999px; padding:.5rem 1rem; font-size:.75rem; font-weight:700; color:var(--ink-soft); transition:.15s; cursor:pointer; white-space:nowrap; }
+    .filter-chip.active { background:var(--ink); color:#fff; border-color:var(--ink); }
+
+    .skeleton { background: linear-gradient(90deg,#EEF0F3 25%,#F7F8FA 37%,#EEF0F3 63%); background-size:400% 100%; animation: shimmer 1.4s infinite; border-radius:1.25rem; }
+    @keyframes shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
+
+    ::-webkit-scrollbar { width:8px; height:8px; }
+    ::-webkit-scrollbar-thumb { background:#D9DBE0; border-radius:9999px; }
+</style>
+</head>
+<body class="text-slate-800">
+
+<!-- ===================== LOGIN ===================== -->
+<div id="login-screen" class="min-h-screen flex items-center justify-center px-4">
+    <div class="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-8 md:p-10 border border-slate-100">
+        <div class="flex justify-center mb-6">
+            <img src="foco-nuevo-rem.png" alt="Comunidad Emprendedora" class="w-14 h-14" onerror="this.style.display='none'">
+        </div>
+        <h1 class="text-xl font-black text-center mb-1">Panel Admin</h1>
+        <p class="text-slate-400 text-xs text-center uppercase tracking-widest font-bold mb-8">Comunidad Emprendedora</p>
+
+        <form id="form-login" class="space-y-3">
+            <div>
+                <label class="field-label">Email</label>
+                <input type="email" id="login-email" placeholder="tuemail@ejemplo.com" required autocomplete="username" class="field">
+            </div>
+            <div>
+                <label class="field-label">Contraseña</label>
+                <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password" class="field">
+            </div>
+            <p id="login-error" class="text-red-500 text-xs font-medium hidden flex items-center gap-1.5 pt-1">
+                <i class="fas fa-circle-exclamation"></i> <span></span>
+            </p>
+            <button type="submit" id="login-btn" class="btn-primary w-full mt-2">Ingresar</button>
+        </form>
+    </div>
+</div>
+
+<!-- ===================== DASHBOARD ===================== -->
+<div id="dashboard" class="hidden min-h-screen flex flex-col md:flex-row">
+
+    <!-- TOP BAR MOBILE -->
+    <header class="md:hidden sticky top-0 z-30 flex items-center justify-between gap-3 bg-black text-white px-4 py-3 border-b border-white/10 shadow-lg">
+        <div class="flex items-center gap-2.5 min-w-0">
+            <span class="text-base font-black tracking-tight uppercase truncate">
+                Comunidad <span class="text-yellow-comunidad">Admin</span>
+            </span>
+        </div>
+        <button onclick="abrirSidebarMobile()" aria-label="Abrir menú" class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 transition-all">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+    </header>
+
+    <!-- OVERLAY MOBILE -->
+    <div id="sidebar-overlay" onclick="cerrarSidebarMobile()" class="hidden fixed inset-0 bg-black/70 z-30 md:hidden"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="fixed md:sticky inset-y-0 left-0 md:top-0 md:h-screen w-72 max-w-[85vw] -translate-x-full md:translate-x-0 transition-transform duration-300 ease-out overflow-y-auto bg-black text-white md:w-64 flex flex-col justify-between border-r border-white/5 z-40 shadow-2xl">
+        <button onclick="cerrarSidebarMobile()" aria-label="Cerrar menú" class="md:hidden absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition">
+            ✕
+        </button>
+        <div class="p-6 flex-1">
+            <h2 class="font-black text-lg mb-1">COMUNIDAD <span class="text-yellow-comunidad">EMPRENDEDORA</span></h2>
+            <p class="text-slate-500 text-[10px] uppercase tracking-widest font-bold mb-8">Panel administrador</p>
+
+            <nav class="space-y-1">
+                <button data-panel="panel-ferias" class="nav-item active w-full text-left px-4 py-3 rounded-xl font-bold text-sm flex items-center gap-3 transition">
+                    <i class="fas fa-calendar-days w-4"></i> Ferias
+                </button>
+                <button data-panel="panel-galeria" class="nav-item w-full text-left px-4 py-3 rounded-xl font-bold text-sm flex items-center gap-3 transition text-slate-300 hover:bg-slate-800">
+                    <i class="fas fa-images w-4"></i> Galería
+                </button>
+                <button data-panel="panel-emprendedores" class="nav-item w-full text-left px-4 py-3 rounded-xl font-bold text-sm flex items-center gap-3 transition text-slate-300 hover:bg-slate-800">
+                    <i class="fas fa-store w-4"></i> Emprendedores
+                </button>
+                <button data-panel="panel-comercios" class="nav-item w-full text-left px-4 py-3 rounded-xl font-bold text-sm flex items-center gap-3 transition text-slate-300 hover:bg-slate-800">
+                    <i class="fas fa-shop w-4"></i> Comercios
+                </button>
+                <button data-panel="panel-postulaciones" class="nav-item w-full text-left px-4 py-3 rounded-xl font-bold text-sm flex items-center gap-3 transition text-slate-300 hover:bg-slate-800">
+                    <i class="fas fa-clipboard-list w-4"></i> Postulaciones
+                    <span id="badge-postulaciones" class="ml-auto bg-yellow-comunidad text-black text-[10px] font-black rounded-full px-2 py-0.5 hidden"></span>
+                </button>
+            </nav>
+        </div>
+
+        <div class="p-6 border-t border-slate-800 flex-shrink-0">
+            <p id="login-user-email" class="text-slate-400 text-xs mb-3 truncate"></p>
+            <button id="btn-logout" class="text-slate-300 hover:text-yellow-comunidad text-sm font-bold flex items-center gap-2">
+                <i class="fas fa-arrow-right-from-bracket"></i> Cerrar sesión
+            </button>
+        </div>
+    </aside>
+
+    <!-- Contenido -->
+    <main class="flex-1 p-4 sm:p-6 md:p-10 max-w-6xl w-full min-w-0">
+
+        <!-- ---------- PANEL FERIAS ---------- -->
+        <section id="panel-ferias" class="panel active">
+            <div class="flex items-start justify-between gap-4 flex-wrap mb-6">
+                <div>
+                    <h2 class="text-2xl md:text-3xl font-black tracking-tight">Ferias</h2>
+                    <p class="text-slate-400 text-sm mt-1">Cargá las próximas ferias y elegí cuál se muestra como la próxima en la web.</p>
+                </div>
+                <button id="btn-nueva-feria" class="btn-accent flex items-center gap-2">
+                    <i class="fas fa-plus"></i> Nueva feria
+                </button>
+            </div>
+
+            <div id="stats-ferias" class="flex gap-3 flex-wrap mb-6"></div>
+
+            <div id="lista-ferias" class="space-y-3"></div>
+        </section>
+
+        <!-- ---------- PANEL GALERÍA ---------- -->
+        <section id="panel-galeria" class="panel">
+            <div class="flex items-start justify-between gap-4 flex-wrap mb-6">
+                <div>
+                    <h2 class="text-2xl md:text-3xl font-black tracking-tight">Galería de fotos</h2>
+                    <p class="text-slate-400 text-sm mt-1">Fotos que se muestran en la galería pública del sitio.</p>
+                </div>
+                <label id="btn-subir-foto" class="btn-accent flex items-center gap-2 cursor-pointer">
+                    <i class="fas fa-upload"></i> Subir foto
+                    <input type="file" id="g-file" accept="image/*" class="hidden" multiple>
+                </label>
+            </div>
+
+            <div id="g-subiendo" class="hidden card p-4 mb-4 flex items-center gap-3 text-sm font-semibold text-slate-600">
+                <i class="fas fa-circle-notch fa-spin text-yellow-comunidad"></i>
+                <span id="g-subiendo-texto">Subiendo imágenes...</span>
+            </div>
+
+            <div id="lista-galeria" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+        </section>
+
+        <!-- ---------- PANEL EMPRENDEDORES ---------- -->
+        <section id="panel-emprendedores" class="panel">
+            <div class="flex items-start justify-between gap-4 flex-wrap mb-6">
+                <div>
+                    <h2 class="text-2xl md:text-3xl font-black tracking-tight">Emprendedores</h2>
+                    <p class="text-slate-400 text-sm mt-1">Los emprendimientos que forman parte de la comunidad.</p>
+                </div>
+                <button id="btn-nuevo-emprendedor" class="btn-accent flex items-center gap-2">
+                    <i class="fas fa-plus"></i> Nuevo emprendedor
+                </button>
+            </div>
+
+            <div id="stats-emprendedores" class="flex gap-3 flex-wrap mb-6"></div>
+
+            <div id="lista-emprendedores" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </section>
+
+        <!-- ---------- PANEL COMERCIOS ---------- -->
+        <section id="panel-comercios" class="panel">
+            <div class="flex items-start justify-between gap-4 flex-wrap mb-6">
+                <div>
+                    <h2 class="text-2xl md:text-3xl font-black tracking-tight">Comercios adheridos</h2>
+                    <p class="text-slate-400 text-sm mt-1">Comercios que apoyan a la comunidad, sin participar directamente en la feria.</p>
+                </div>
+                <button id="btn-nuevo-comercio" class="btn-accent flex items-center gap-2">
+                    <i class="fas fa-plus"></i> Nuevo comercio
+                </button>
+            </div>
+
+            <div id="stats-comercios" class="flex gap-3 flex-wrap mb-6"></div>
+
+            <div id="lista-comercios" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </section>
+
+        <!-- ---------- PANEL POSTULACIONES ---------- -->
+        <section id="panel-postulaciones" class="panel">
+            <div class="mb-6">
+                <h2 class="text-2xl md:text-3xl font-black tracking-tight">Postulaciones</h2>
+                <p class="text-slate-400 text-sm mt-1">Emprendedores que se postularon para sumarse a una feria.</p>
+            </div>
+
+            <div id="filtros-postulaciones" class="flex gap-2 flex-wrap mb-6"></div>
+
+            <div id="lista-postulaciones" class="space-y-3"></div>
+        </section>
+
+    </main>
+</div>
+
+<!-- ===================== MODAL: FERIA ===================== -->
+<div id="modal-feria" class="modal">
+    <div class="modal-panel card w-full max-w-lg max-h-[92vh] overflow-y-auto p-7 md:p-8">
+        <div class="flex items-center justify-between mb-6">
+            <h3 id="modal-feria-titulo" class="text-lg font-black">Nueva feria</h3>
+            <button type="button" data-close-modal="modal-feria" class="btn-icon bg-slate-100 hover:bg-slate-200"><i class="fas fa-xmark"></i></button>
+        </div>
+
+        <form id="form-feria" class="space-y-4">
+            <input type="hidden" id="feria-id">
+
+            <div>
+                <label class="field-label">Título</label>
+                <input type="text" id="f-titulo" placeholder="Ej: Feria de verano" required class="field">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="field-label">Día de la semana</label>
+                    <input type="text" id="f-diaSemana" placeholder="Ej: Domingo" required class="field">
+                </div>
+                <div>
+                    <label class="field-label">Mes</label>
+                    <input type="text" id="f-mes" placeholder="Ej: Enero" required class="field">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="field-label">Día n°</label>
+                    <input type="text" id="f-diaNumero" placeholder="Ej: 11" required class="field">
+                </div>
+                <div>
+                    <label class="field-label">Horario</label>
+                    <input type="text" id="f-horario" placeholder="Desde 19:00 hs" required class="field">
+                </div>
+            </div>
+
+            <div>
+                <label class="field-label">Ubicación</label>
+                <input type="text" id="f-ubicacion" placeholder="Ubicación" required class="field">
+            </div>
+
+            <div>
+                <label class="field-label">Mapa (URL de Google Maps embed, opcional)</label>
+                <input type="text" id="f-mapaEmbedUrl" placeholder="https://..." class="field">
+            </div>
+
+            <div>
+                <label class="field-label">Flyer</label>
+                <div class="flex items-center gap-4">
+                    <img id="f-flyer-preview" class="hidden h-20 w-20 rounded-xl object-cover border border-slate-200">
+                    <label class="field flex items-center justify-center gap-2 cursor-pointer text-slate-500 hover:text-slate-700 hover:border-yellow-comunidad">
+                        <i class="fas fa-image"></i> <span id="f-flyer-label">Elegir imagen</span>
+                        <input type="file" id="f-flyer-file" accept="image/*" class="hidden">
+                    </label>
+                </div>
+                <input type="hidden" id="f-flyerUrl">
+            </div>
+
+            <label class="flex items-center gap-3 text-sm font-bold bg-slate-50 border border-slate-200 rounded-xl p-4 cursor-pointer">
+                <input type="checkbox" id="f-activa" class="w-4 h-4 accent-black">
+                <span>Mostrar en la web<br><span class="font-normal text-xs text-slate-400">Podés activar más de una feria a la vez: se muestran todas, apiladas, en orden de carga.</span></span>
+            </label>
+
+            <div class="flex gap-3 pt-2">
+                <button type="submit" id="btn-guardar-feria" class="btn-primary flex-1">Guardar feria</button>
+                <button type="button" data-close-modal="modal-feria" class="text-slate-500 font-bold px-6 py-3 text-sm hover:text-slate-700">Cancelar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ===================== MODAL: EMPRENDEDOR ===================== -->
+<div id="modal-emprendedor" class="modal">
+    <div class="modal-panel card w-full max-w-lg max-h-[92vh] overflow-y-auto p-7 md:p-8">
+        <div class="flex items-center justify-between mb-6">
+            <h3 id="modal-emprendedor-titulo" class="text-lg font-black">Nuevo emprendedor</h3>
+            <button type="button" data-close-modal="modal-emprendedor" class="btn-icon bg-slate-100 hover:bg-slate-200"><i class="fas fa-xmark"></i></button>
+        </div>
+
+        <form id="form-emprendedor" class="space-y-4">
+            <input type="hidden" id="e-id">
+
+            <div>
+                <label class="field-label">Nombre del emprendimiento</label>
+                <input type="text" id="e-nombre" placeholder="Nombre del emprendimiento" required class="field">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="field-label">Categoría</label>
+                    <input type="text" id="e-categoria" placeholder="Ej: Maquillaje" class="field">
+                </div>
+                <div>
+                    <label class="field-label">Orden</label>
+                    <input type="number" id="e-orden" placeholder="0" value="0" class="field">
+                </div>
+            </div>
+
+            <div>
+                <label class="field-label">Testimonio (opcional)</label>
+                <textarea id="e-testimonio" placeholder='Ej: "Gracias a la Comunidad Emprendedora mi marca llegó a mucha más gente en Villa Ángela."' class="field h-24 resize-none"></textarea>
+                <p class="text-slate-400 text-xs mt-1.5">Si lo completás, aparece en "Lo que dicen nuestros emprendedores". Si lo dejás vacío, no se muestra ahí.</p>
+            </div>
+
+            <div>
+                <label class="field-label">Logo</label>
+                <div class="flex items-center gap-4">
+                    <img id="e-logo-preview" class="hidden h-16 w-16 rounded-full object-cover border border-slate-200">
+                    <label class="field flex items-center justify-center gap-2 cursor-pointer text-slate-500 hover:text-slate-700 hover:border-yellow-comunidad">
+                        <i class="fas fa-image"></i> <span id="e-logo-label">Elegir imagen</span>
+                        <input type="file" id="e-logo-file" accept="image/*" class="hidden">
+                    </label>
+                </div>
+                <input type="hidden" id="e-logoUrl">
+            </div>
+
+            <div class="flex gap-3 pt-2">
+                <button type="submit" id="btn-guardar-emprendedor" class="btn-primary flex-1">Guardar emprendedor</button>
+                <button type="button" data-close-modal="modal-emprendedor" class="text-slate-500 font-bold px-6 py-3 text-sm hover:text-slate-700">Cancelar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ===================== MODAL: COMERCIO ===================== -->
+<div id="modal-comercio" class="modal">
+    <div class="modal-panel card w-full max-w-lg max-h-[92vh] overflow-y-auto p-7 md:p-8">
+        <div class="flex items-center justify-between mb-6">
+            <h3 id="modal-comercio-titulo" class="text-lg font-black">Nuevo comercio</h3>
+            <button type="button" data-close-modal="modal-comercio" class="btn-icon bg-slate-100 hover:bg-slate-200"><i class="fas fa-xmark"></i></button>
+        </div>
+
+        <form id="form-comercio" class="space-y-4">
+            <input type="hidden" id="c-id">
+
+            <div>
+                <label class="field-label">Nombre del comercio</label>
+                <input type="text" id="c-nombre" placeholder="Nombre del comercio" required class="field">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="field-label">Categoría</label>
+                    <input type="text" id="c-categoria" placeholder="Ej: Indumentaria" class="field">
+                </div>
+                <div>
+                    <label class="field-label">Orden</label>
+                    <input type="number" id="c-orden" placeholder="0" value="0" class="field">
+                </div>
+            </div>
+
+            <div>
+                <label class="field-label">Logo</label>
+                <div class="flex items-center gap-4">
+                    <img id="c-logo-preview" class="hidden h-16 w-16 rounded-full object-cover border border-slate-200">
+                    <label class="field flex items-center justify-center gap-2 cursor-pointer text-slate-500 hover:text-slate-700 hover:border-yellow-comunidad">
+                        <i class="fas fa-image"></i> <span id="c-logo-label">Elegir imagen</span>
+                        <input type="file" id="c-logo-file" accept="image/*" class="hidden">
+                    </label>
+                </div>
+                <input type="hidden" id="c-logoUrl">
+            </div>
+
+            <div class="flex gap-3 pt-2">
+                <button type="submit" id="btn-guardar-comercio" class="btn-primary flex-1">Guardar comercio</button>
+                <button type="button" data-close-modal="modal-comercio" class="text-slate-500 font-bold px-6 py-3 text-sm hover:text-slate-700">Cancelar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ===================== MODAL: CONFIRMAR ===================== -->
+<div id="modal-confirmar" class="modal">
+    <div class="modal-panel card w-full max-w-sm p-7 text-center">
+        <div class="w-14 h-14 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto mb-4 text-xl">
+            <i class="fas fa-trash-can"></i>
+        </div>
+        <h3 id="confirmar-titulo" class="text-lg font-black mb-1.5">¿Eliminar este elemento?</h3>
+        <p id="confirmar-texto" class="text-slate-400 text-sm mb-6">Esta acción no se puede deshacer.</p>
+        <div class="flex gap-3">
+            <button type="button" data-close-modal="modal-confirmar" class="flex-1 text-slate-500 font-bold px-4 py-3 text-sm rounded-xl hover:bg-slate-100">Cancelar</button>
+            <button type="button" id="btn-confirmar-eliminar" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold px-4 py-3 text-sm rounded-xl transition">Sí, eliminar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast de feedback -->
+<div id="toast" class="toast fixed bottom-6 left-1/2 -translate-x-1/2 md:left-auto md:right-6 md:translate-x-0 bg-black text-white px-5 py-3 rounded-xl shadow-2xl text-sm font-bold opacity-0 pointer-events-none translate-y-4 z-[70] flex items-center gap-2.5"></div>
+
+<script src="admin.js"></script>
+<script>
+    function abrirSidebarMobile() {
+        document.getElementById('sidebar').classList.remove('-translate-x-full');
+        document.getElementById('sidebar-overlay').classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+    }
+    function cerrarSidebarMobile() {
+        document.getElementById('sidebar').classList.add('-translate-x-full');
+        document.getElementById('sidebar-overlay').classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    }
+    // Si se agranda la ventana a desktop, aseguramos que quede todo limpio
+    window.addEventListener('resize', () => {
+        if (window.innerWidth >= 768) cerrarSidebarMobile();
+    });
+</script>
+</body>
+</html>
