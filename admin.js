@@ -20,6 +20,12 @@ function escaparHtml(texto) {
     return div.innerHTML;
 }
 
+// Usado por los buscadores de emprendedores/comercios: saca tildes y pasa a
+// minúsculas para que buscar "jose" también encuentre "José", etc.
+function normalizarTexto(texto) {
+    return (texto ?? "").toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
 function iniciales(nombre = "") {
     return nombre.trim().split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase() || "?";
 }
@@ -498,6 +504,11 @@ formEmprendedor.addEventListener('submit', async (e) => {
     }
 });
 
+// Guardamos acá el último listado que trajo Firestore para poder filtrarlo
+// al instante mientras se escribe en el buscador, sin tener que volver a
+// consultar la base de datos en cada letra.
+let __emprendedoresDocs = [];
+
 async function cargarEmprendedores(mostrarSkeleton = true) {
     const lista = document.getElementById('lista-emprendedores');
     const stats = document.getElementById('stats-emprendedores');
@@ -513,43 +524,66 @@ async function cargarEmprendedores(mostrarSkeleton = true) {
             ${statChip('fa-quote-left', conTestimonio, 'con testimonio publicado')}
         `;
 
-        if (snap.empty) {
-            lista.innerHTML = estadoVacio('fa-store', 'Todavía no cargaste emprendedores', 'Sumá el primero para que aparezca en el sitio.', 'md:col-span-2');
-            return;
-        }
-        lista.innerHTML = snap.docs.map(doc => {
-            const e = doc.data();
-            return `
-            <div class="card p-5 flex items-start gap-4">
-                ${e.logoUrl
-                    ? `<img src="${escaparHtml(e.logoUrl)}" class="w-12 h-12 rounded-full object-cover bg-slate-100 flex-shrink-0">`
-                    : avatarHtml(e.nombre)}
-                <div class="flex-1 min-w-0">
-                    <p class="font-bold">${escaparHtml(e.nombre)}</p>
-                    ${e.categoria ? `<p class="text-slate-400 text-xs uppercase tracking-widest mt-0.5">${escaparHtml(e.categoria)}</p>` : ''}
-                    ${e.testimonio ? `<p class="text-slate-500 text-xs italic mt-2 line-clamp-2"><i class="fas fa-quote-left text-[10px] mr-1"></i>${escaparHtml(e.testimonio)}</p>` : ''}
-                    ${(e.instagram || e.whatsapp || e.web) ? `<p class="text-slate-400 text-xs mt-2 flex items-center gap-1"><i class="fas fa-link"></i> Contacto cargado</p>` : ''}
-                </div>
-                <div class="flex gap-2 flex-shrink-0">
-                    <button data-editar-emprendedor="${doc.id}" class="btn-icon bg-slate-100 hover:bg-slate-200"><i class="fas fa-pen text-xs"></i></button>
-                    <button data-eliminar-emprendedor="${doc.id}" data-nombre="${escaparHtml(e.nombre)}" class="btn-icon bg-red-50 hover:bg-red-100 text-red-500"><i class="fas fa-trash text-xs"></i></button>
-                </div>
-            </div>`;
-        }).join('');
-
-        lista.querySelectorAll('[data-editar-emprendedor]').forEach(b => b.addEventListener('click', () => editarEmprendedor(b.dataset.editarEmprendedor)));
-        lista.querySelectorAll('[data-eliminar-emprendedor]').forEach(b => b.addEventListener('click', () => {
-            pedirConfirmacion({
-                titulo: `¿Eliminar "${b.dataset.nombre}"?`,
-                texto: "Este emprendedor se va a borrar de forma permanente.",
-                onConfirm: () => eliminarEmprendedor(b.dataset.eliminarEmprendedor)
-            });
-        }));
+        __emprendedoresDocs = snap.docs.map(doc => ({ id: doc.id, data: doc.data() }));
+        renderListaEmprendedores();
     } catch (err) {
         console.error(err);
         lista.innerHTML = `<p class="text-red-500 text-sm">Error al cargar los emprendedores.</p>`;
     }
 }
+
+// Pinta la lista de emprendedores aplicando el filtro del buscador (si hay
+// uno cargado) sobre lo que ya tenemos en memoria (__emprendedoresDocs).
+function renderListaEmprendedores() {
+    const lista = document.getElementById('lista-emprendedores');
+    const inputBuscar = document.getElementById('buscar-emprendedores');
+    const termino = normalizarTexto(inputBuscar ? inputBuscar.value : '');
+
+    if (!__emprendedoresDocs.length) {
+        lista.innerHTML = estadoVacio('fa-store', 'Todavía no cargaste emprendedores', 'Sumá el primero para que aparezca en el sitio.', 'md:col-span-2');
+        return;
+    }
+
+    const filtrados = termino
+        ? __emprendedoresDocs.filter(({ data: e }) =>
+            normalizarTexto(e.nombre).includes(termino) || normalizarTexto(e.categoria).includes(termino))
+        : __emprendedoresDocs;
+
+    if (!filtrados.length) {
+        lista.innerHTML = estadoVacio('fa-magnifying-glass', 'Sin resultados', `No encontramos ningún emprendedor para "${escaparHtml(inputBuscar.value)}".`, 'md:col-span-2');
+        return;
+    }
+
+    lista.innerHTML = filtrados.map(({ id, data: e }) => {
+        return `
+        <div class="card p-5 flex items-start gap-4">
+            ${e.logoUrl
+                ? `<img src="${escaparHtml(e.logoUrl)}" class="w-12 h-12 rounded-full object-cover bg-slate-100 flex-shrink-0">`
+                : avatarHtml(e.nombre)}
+            <div class="flex-1 min-w-0">
+                <p class="font-bold">${escaparHtml(e.nombre)}</p>
+                ${e.categoria ? `<p class="text-slate-400 text-xs uppercase tracking-widest mt-0.5">${escaparHtml(e.categoria)}</p>` : ''}
+                ${e.testimonio ? `<p class="text-slate-500 text-xs italic mt-2 line-clamp-2"><i class="fas fa-quote-left text-[10px] mr-1"></i>${escaparHtml(e.testimonio)}</p>` : ''}
+                ${(e.instagram || e.whatsapp || e.web) ? `<p class="text-slate-400 text-xs mt-2 flex items-center gap-1"><i class="fas fa-link"></i> Contacto cargado</p>` : ''}
+            </div>
+            <div class="flex gap-2 flex-shrink-0">
+                <button data-editar-emprendedor="${id}" class="btn-icon bg-slate-100 hover:bg-slate-200"><i class="fas fa-pen text-xs"></i></button>
+                <button data-eliminar-emprendedor="${id}" data-nombre="${escaparHtml(e.nombre)}" class="btn-icon bg-red-50 hover:bg-red-100 text-red-500"><i class="fas fa-trash text-xs"></i></button>
+            </div>
+        </div>`;
+    }).join('');
+
+    lista.querySelectorAll('[data-editar-emprendedor]').forEach(b => b.addEventListener('click', () => editarEmprendedor(b.dataset.editarEmprendedor)));
+    lista.querySelectorAll('[data-eliminar-emprendedor]').forEach(b => b.addEventListener('click', () => {
+        pedirConfirmacion({
+            titulo: `¿Eliminar "${b.dataset.nombre}"?`,
+            texto: "Este emprendedor se va a borrar de forma permanente.",
+            onConfirm: () => eliminarEmprendedor(b.dataset.eliminarEmprendedor)
+        });
+    }));
+}
+
+document.getElementById('buscar-emprendedores').addEventListener('input', renderListaEmprendedores);
 
 async function editarEmprendedor(id) {
     const doc = await db.collection('emprendedores').doc(id).get();
@@ -679,6 +713,9 @@ formComercio.addEventListener('submit', async (e) => {
     }
 });
 
+// Igual que __emprendedoresDocs: cache en memoria para filtrar al instante.
+let __comerciosDocs = [];
+
 async function cargarComercios(mostrarSkeleton = true) {
     const lista = document.getElementById('lista-comercios');
     const stats = document.getElementById('stats-comercios');
@@ -692,42 +729,65 @@ async function cargarComercios(mostrarSkeleton = true) {
             ${statChip('fa-shop', snap.size, snap.size === 1 ? 'comercio cargado' : 'comercios cargados')}
         `;
 
-        if (snap.empty) {
-            lista.innerHTML = estadoVacio('fa-shop', 'Todavía no cargaste comercios', 'Sumá el primero para que aparezca en el sitio.', 'md:col-span-2');
-            return;
-        }
-        lista.innerHTML = snap.docs.map(doc => {
-            const c = doc.data();
-            return `
-            <div class="card p-5 flex items-start gap-4">
-                ${c.logoUrl
-                    ? `<img src="${escaparHtml(c.logoUrl)}" class="w-12 h-12 rounded-full object-cover bg-slate-100 flex-shrink-0">`
-                    : avatarHtml(c.nombre)}
-                <div class="flex-1 min-w-0">
-                    <p class="font-bold">${escaparHtml(c.nombre)}</p>
-                    ${c.categoria ? `<p class="text-slate-400 text-xs uppercase tracking-widest mt-0.5">${escaparHtml(c.categoria)}</p>` : ''}
-                    ${c.descuento ? `<p class="text-green-600 text-xs mt-1 flex items-center gap-1"><i class="fas fa-tag"></i> Descuento cargado</p>` : ''}
-                </div>
-                <div class="flex gap-2 flex-shrink-0">
-                    <button data-editar-comercio="${doc.id}" class="btn-icon bg-slate-100 hover:bg-slate-200"><i class="fas fa-pen text-xs"></i></button>
-                    <button data-eliminar-comercio="${doc.id}" data-nombre="${escaparHtml(c.nombre)}" class="btn-icon bg-red-50 hover:bg-red-100 text-red-500"><i class="fas fa-trash text-xs"></i></button>
-                </div>
-            </div>`;
-        }).join('');
-
-        lista.querySelectorAll('[data-editar-comercio]').forEach(b => b.addEventListener('click', () => editarComercio(b.dataset.editarComercio)));
-        lista.querySelectorAll('[data-eliminar-comercio]').forEach(b => b.addEventListener('click', () => {
-            pedirConfirmacion({
-                titulo: `¿Eliminar "${b.dataset.nombre}"?`,
-                texto: "Este comercio se va a borrar de forma permanente.",
-                onConfirm: () => eliminarComercio(b.dataset.eliminarComercio)
-            });
-        }));
+        __comerciosDocs = snap.docs.map(doc => ({ id: doc.id, data: doc.data() }));
+        renderListaComercios();
     } catch (err) {
         console.error(err);
         lista.innerHTML = `<p class="text-red-500 text-sm">Error al cargar los comercios.</p>`;
     }
 }
+
+// Pinta la lista de comercios aplicando el filtro del buscador (si hay uno
+// cargado) sobre lo que ya tenemos en memoria (__comerciosDocs).
+function renderListaComercios() {
+    const lista = document.getElementById('lista-comercios');
+    const inputBuscar = document.getElementById('buscar-comercios');
+    const termino = normalizarTexto(inputBuscar ? inputBuscar.value : '');
+
+    if (!__comerciosDocs.length) {
+        lista.innerHTML = estadoVacio('fa-shop', 'Todavía no cargaste comercios', 'Sumá el primero para que aparezca en el sitio.', 'md:col-span-2');
+        return;
+    }
+
+    const filtrados = termino
+        ? __comerciosDocs.filter(({ data: c }) =>
+            normalizarTexto(c.nombre).includes(termino) || normalizarTexto(c.categoria).includes(termino))
+        : __comerciosDocs;
+
+    if (!filtrados.length) {
+        lista.innerHTML = estadoVacio('fa-magnifying-glass', 'Sin resultados', `No encontramos ningún comercio para "${escaparHtml(inputBuscar.value)}".`, 'md:col-span-2');
+        return;
+    }
+
+    lista.innerHTML = filtrados.map(({ id, data: c }) => {
+        return `
+        <div class="card p-5 flex items-start gap-4">
+            ${c.logoUrl
+                ? `<img src="${escaparHtml(c.logoUrl)}" class="w-12 h-12 rounded-full object-cover bg-slate-100 flex-shrink-0">`
+                : avatarHtml(c.nombre)}
+            <div class="flex-1 min-w-0">
+                <p class="font-bold">${escaparHtml(c.nombre)}</p>
+                ${c.categoria ? `<p class="text-slate-400 text-xs uppercase tracking-widest mt-0.5">${escaparHtml(c.categoria)}</p>` : ''}
+                ${c.descuento ? `<p class="text-green-600 text-xs mt-1 flex items-center gap-1"><i class="fas fa-tag"></i> Descuento cargado</p>` : ''}
+            </div>
+            <div class="flex gap-2 flex-shrink-0">
+                <button data-editar-comercio="${id}" class="btn-icon bg-slate-100 hover:bg-slate-200"><i class="fas fa-pen text-xs"></i></button>
+                <button data-eliminar-comercio="${id}" data-nombre="${escaparHtml(c.nombre)}" class="btn-icon bg-red-50 hover:bg-red-100 text-red-500"><i class="fas fa-trash text-xs"></i></button>
+            </div>
+        </div>`;
+    }).join('');
+
+    lista.querySelectorAll('[data-editar-comercio]').forEach(b => b.addEventListener('click', () => editarComercio(b.dataset.editarComercio)));
+    lista.querySelectorAll('[data-eliminar-comercio]').forEach(b => b.addEventListener('click', () => {
+        pedirConfirmacion({
+            titulo: `¿Eliminar "${b.dataset.nombre}"?`,
+            texto: "Este comercio se va a borrar de forma permanente.",
+            onConfirm: () => eliminarComercio(b.dataset.eliminarComercio)
+        });
+    }));
+}
+
+document.getElementById('buscar-comercios').addEventListener('input', renderListaComercios);
 
 async function editarComercio(id) {
     const doc = await db.collection('comercios').doc(id).get();
