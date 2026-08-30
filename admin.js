@@ -425,6 +425,7 @@ function resetFormEmprendedor() {
     formEmprendedor.reset();
     document.getElementById('e-id').value = "";
     document.getElementById('e-logoUrl').value = "";
+    document.getElementById('e-logo-link').value = "";
     document.getElementById('e-logo-preview').classList.add('hidden');
     document.getElementById('e-logo-label').textContent = "Elegir imagen";
 }
@@ -436,6 +437,7 @@ document.getElementById('e-logo-file').addEventListener('change', async (e) => {
         document.getElementById('e-logo-label').textContent = "Subiendo...";
         const url = await subirImagenCloudinary(file);
         document.getElementById('e-logoUrl').value = url;
+        document.getElementById('e-logo-link').value = "";
         const preview = document.getElementById('e-logo-preview');
         preview.src = url;
         preview.classList.remove('hidden');
@@ -447,6 +449,18 @@ document.getElementById('e-logo-file').addEventListener('change', async (e) => {
     }
 });
 
+// Alternativa a subir un archivo: pegar directamente el link de una imagen
+// ya alojada en otro lado (por ejemplo Instagram, Drive, u otra web).
+document.getElementById('e-logo-link').addEventListener('change', (e) => {
+    const url = e.target.value.trim();
+    if (!url) return;
+    document.getElementById('e-logoUrl').value = url;
+    const preview = document.getElementById('e-logo-preview');
+    preview.src = url;
+    preview.classList.remove('hidden');
+    document.getElementById('e-logo-label').textContent = "Elegir imagen";
+});
+
 formEmprendedor.addEventListener('submit', async (e) => {
     e.preventDefault();
     const id = document.getElementById('e-id').value;
@@ -456,6 +470,9 @@ formEmprendedor.addEventListener('submit', async (e) => {
         categoria: document.getElementById('e-categoria').value,
         orden: Number(document.getElementById('e-orden').value) || 0,
         testimonio: document.getElementById('e-testimonio').value.trim(),
+        instagram: document.getElementById('e-instagram').value.trim(),
+        whatsapp: document.getElementById('e-whatsapp').value.trim(),
+        web: document.getElementById('e-web').value.trim(),
         logoUrl: document.getElementById('e-logoUrl').value
     };
 
@@ -511,6 +528,7 @@ async function cargarEmprendedores(mostrarSkeleton = true) {
                     <p class="font-bold">${escaparHtml(e.nombre)}</p>
                     ${e.categoria ? `<p class="text-slate-400 text-xs uppercase tracking-widest mt-0.5">${escaparHtml(e.categoria)}</p>` : ''}
                     ${e.testimonio ? `<p class="text-slate-500 text-xs italic mt-2 line-clamp-2"><i class="fas fa-quote-left text-[10px] mr-1"></i>${escaparHtml(e.testimonio)}</p>` : ''}
+                    ${(e.instagram || e.whatsapp || e.web) ? `<p class="text-slate-400 text-xs mt-2 flex items-center gap-1"><i class="fas fa-link"></i> Contacto cargado</p>` : ''}
                 </div>
                 <div class="flex gap-2 flex-shrink-0">
                     <button data-editar-emprendedor="${doc.id}" class="btn-icon bg-slate-100 hover:bg-slate-200"><i class="fas fa-pen text-xs"></i></button>
@@ -541,7 +559,11 @@ async function editarEmprendedor(id) {
     document.getElementById('e-categoria').value = e.categoria || '';
     document.getElementById('e-orden').value = e.orden || 0;
     document.getElementById('e-testimonio').value = e.testimonio || '';
+    document.getElementById('e-instagram').value = e.instagram || '';
+    document.getElementById('e-whatsapp').value = e.whatsapp || '';
+    document.getElementById('e-web').value = e.web || '';
     document.getElementById('e-logoUrl').value = e.logoUrl || '';
+    document.getElementById('e-logo-link').value = e.logoUrl || '';
 
     const preview = document.getElementById('e-logo-preview');
     if (e.logoUrl) {
@@ -583,7 +605,9 @@ document.getElementById('btn-nuevo-comercio').addEventListener('click', () => {
 function resetFormComercio() {
     formComercio.reset();
     document.getElementById('c-id').value = "";
+    document.getElementById('c-descuento').value = "";
     document.getElementById('c-logoUrl').value = "";
+    document.getElementById('c-logo-link').value = "";
     document.getElementById('c-logo-preview').classList.add('hidden');
     document.getElementById('c-logo-label').textContent = "Elegir imagen";
 }
@@ -595,6 +619,7 @@ document.getElementById('c-logo-file').addEventListener('change', async (e) => {
         document.getElementById('c-logo-label').textContent = "Subiendo...";
         const url = await subirImagenCloudinary(file);
         document.getElementById('c-logoUrl').value = url;
+        document.getElementById('c-logo-link').value = "";
         const preview = document.getElementById('c-logo-preview');
         preview.src = url;
         preview.classList.remove('hidden');
@@ -606,6 +631,18 @@ document.getElementById('c-logo-file').addEventListener('change', async (e) => {
     }
 });
 
+// Alternativa a subir un archivo: pegar directamente el link de una imagen
+// ya alojada en otro lado (por ejemplo Instagram, Drive, u otra web).
+document.getElementById('c-logo-link').addEventListener('change', (e) => {
+    const url = e.target.value.trim();
+    if (!url) return;
+    document.getElementById('c-logoUrl').value = url;
+    const preview = document.getElementById('c-logo-preview');
+    preview.src = url;
+    preview.classList.remove('hidden');
+    document.getElementById('c-logo-label').textContent = "Elegir imagen";
+});
+
 formComercio.addEventListener('submit', async (e) => {
     e.preventDefault();
     const id = document.getElementById('c-id').value;
@@ -614,6 +651,9 @@ formComercio.addEventListener('submit', async (e) => {
         nombre: document.getElementById('c-nombre').value,
         categoria: document.getElementById('c-categoria').value,
         orden: Number(document.getElementById('c-orden').value) || 0,
+        descuento: document.getElementById('c-descuento').value,
+        instagram: document.getElementById('c-instagram').value.trim(),
+        whatsapp: document.getElementById('c-whatsapp').value.trim(),
         logoUrl: document.getElementById('c-logoUrl').value
     };
 
@@ -666,6 +706,7 @@ async function cargarComercios(mostrarSkeleton = true) {
                 <div class="flex-1 min-w-0">
                     <p class="font-bold">${escaparHtml(c.nombre)}</p>
                     ${c.categoria ? `<p class="text-slate-400 text-xs uppercase tracking-widest mt-0.5">${escaparHtml(c.categoria)}</p>` : ''}
+                    ${c.descuento ? `<p class="text-green-600 text-xs mt-1 flex items-center gap-1"><i class="fas fa-tag"></i> Descuento cargado</p>` : ''}
                 </div>
                 <div class="flex gap-2 flex-shrink-0">
                     <button data-editar-comercio="${doc.id}" class="btn-icon bg-slate-100 hover:bg-slate-200"><i class="fas fa-pen text-xs"></i></button>
@@ -695,7 +736,11 @@ async function editarComercio(id) {
     document.getElementById('c-nombre').value = c.nombre || '';
     document.getElementById('c-categoria').value = c.categoria || '';
     document.getElementById('c-orden').value = c.orden || 0;
+    document.getElementById('c-descuento').value = c.descuento || '';
+    document.getElementById('c-instagram').value = c.instagram || '';
+    document.getElementById('c-whatsapp').value = c.whatsapp || '';
     document.getElementById('c-logoUrl').value = c.logoUrl || '';
+    document.getElementById('c-logo-link').value = c.logoUrl || '';
 
     const preview = document.getElementById('c-logo-preview');
     if (c.logoUrl) {
