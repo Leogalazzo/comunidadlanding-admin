@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Panel Admin - Comunidad Emprendedora</title>
 <link rel="shortcut icon" href="foco-nuevo-rem.png">
+
+<!-- PWA -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="CE Admin">
+<link rel="apple-touch-icon" href="/web-app-manifest-192x192.png">
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -359,6 +368,22 @@
                 <p class="text-slate-400 text-xs mt-1.5">Si lo completás, aparece en "Lo que dicen nuestros emprendedores". Si lo dejás vacío, no se muestra ahí.</p>
             </div>
 
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="field-label">Instagram (opcional)</label>
+                    <input type="text" id="e-instagram" placeholder="@usuario o link completo" class="field">
+                </div>
+                <div>
+                    <label class="field-label">WhatsApp (opcional)</label>
+                    <input type="text" id="e-whatsapp" placeholder="Ej: 3645123456" class="field">
+                </div>
+            </div>
+            <div>
+                <label class="field-label">Página web (opcional)</label>
+                <input type="url" id="e-web" placeholder="https://..." class="field">
+            </div>
+            <p class="text-slate-400 text-xs -mt-2">Para WhatsApp, poné el número con código de área, sin espacios ni guiones. Si el emprendedor no tiene alguno de estos datos, dejalo vacío.</p>
+
             <div>
                 <label class="field-label">Logo</label>
                 <div class="flex items-center gap-4">
@@ -367,6 +392,10 @@
                         <i class="fas fa-image"></i> <span id="e-logo-label">Elegir imagen</span>
                         <input type="file" id="e-logo-file" accept="image/*" class="hidden">
                     </label>
+                </div>
+                <div class="flex items-center gap-2 mt-2">
+                    <span class="text-slate-300 text-xs font-bold uppercase">o</span>
+                    <input type="url" id="e-logo-link" placeholder="Pegar link de la imagen" class="field flex-1">
                 </div>
                 <input type="hidden" id="e-logoUrl">
             </div>
@@ -415,7 +444,29 @@
                         <input type="file" id="c-logo-file" accept="image/*" class="hidden">
                     </label>
                 </div>
+                <div class="flex items-center gap-2 mt-2">
+                    <span class="text-slate-300 text-xs font-bold uppercase">o</span>
+                    <input type="url" id="c-logo-link" placeholder="Pegar link de la imagen" class="field flex-1">
+                </div>
                 <input type="hidden" id="c-logoUrl">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="field-label">Instagram (opcional)</label>
+                    <input type="text" id="c-instagram" placeholder="@usuario o link completo" class="field">
+                </div>
+                <div>
+                    <label class="field-label">WhatsApp (opcional)</label>
+                    <input type="text" id="c-whatsapp" placeholder="Ej: 3645123456" class="field">
+                </div>
+            </div>
+            <p class="text-slate-400 text-xs -mt-2">Para WhatsApp, poné el número con código de área, sin espacios ni guiones. Si el comercio no tiene, dejalo vacío.</p>
+
+            <div>
+                <label class="field-label">Descuento para emprendedores (opcional)</label>
+                <textarea id="c-descuento" placeholder='Ej: "15% de descuento todos los martes y jueves presentando el carnet de emprendedor."' class="field h-24 resize-none"></textarea>
+                <p class="text-slate-400 text-xs mt-1.5">Contá el porcentaje o beneficio, qué días aplica y cualquier condición. Si lo dejás vacío, no se muestra en la web.</p>
             </div>
 
             <div class="flex gap-3 pt-2">
@@ -460,6 +511,14 @@
     window.addEventListener('resize', () => {
         if (window.innerWidth >= 768) cerrarSidebarMobile();
     });
+
+    // Registro del Service Worker para que el panel sea instalable (PWA)
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/service-worker.js')
+                .catch((err) => console.warn('No se pudo registrar el Service Worker:', err));
+        });
+    }
 </script>
 </body>
 </html>
