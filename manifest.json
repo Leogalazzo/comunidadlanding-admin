@@ -1,6 +1,6 @@
 {
   "name": "Comunidad Emprendedora",
-  "short_name": "CE Admin",
+  "short_name": "Comunidad Landing",
   "description": "Panel de administración de Comunidad Emprendedora Villa Ángela: gestión de emprendedores, comercios, eventos y testimonios.",
   "start_url": "/admin",
   "scope": "/",
