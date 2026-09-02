@@ -117,12 +117,34 @@
              background: rgba(20,17,10,.55); backdrop-filter: blur(4px);
              opacity:0; pointer-events:none; transition: opacity .2s ease; }
     .modal.active { opacity:1; pointer-events:auto; }
-    .modal-panel { transform: translateY(16px) scale(.97); transition: transform .25s cubic-bezier(.16,1,.3,1); background:var(--surface); border-radius:1.5rem; box-shadow: var(--shadow-lg); border:1px solid var(--line-soft); }
+    .modal-panel { transform: translateY(16px) scale(.97); transition: transform .25s cubic-bezier(.16,1,.3,1); background:var(--surface); border-radius:1.5rem; box-shadow: var(--shadow-lg); border:1px solid var(--line-soft); display:flex; flex-direction:column; overflow:hidden; max-height:90vh; }
     .modal.active .modal-panel { transform: none; }
     .modal-tag { width:2.75rem; height:2.75rem; border-radius:.9rem; display:flex; align-items:center; justify-content:center; font-size:1rem; flex-shrink:0; }
     .modal-tag.ferias { background:var(--c-ferias-soft); color:var(--c-ferias); }
     .modal-tag.emprendedores { background:var(--c-emprendedores-soft); color:var(--c-emprendedores); }
     .modal-tag.comercios { background:var(--c-comercios-soft); color:var(--c-comercios); }
+
+    /* ---------- Modal: header / body / footer (formularios) ---------- */
+    .modal-header { flex-shrink:0; display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:1.25rem 1.5rem 1rem; border-bottom:1px solid var(--line-soft); }
+    .modal-body { flex:1 1 auto; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:1.25rem 1.5rem; }
+    .modal-footer { flex-shrink:0; display:flex; gap:.75rem; padding:1rem 1.5rem; border-top:1px solid var(--line-soft); background:var(--surface); }
+
+    @media (min-width: 768px) {
+        .modal-header { padding:2rem 2rem 1.25rem; }
+        .modal-body { padding:1.5rem 2rem; }
+        .modal-footer { padding:1.25rem 2rem; }
+    }
+
+    /* En mobile los formularios se abren como hoja deslizable desde abajo:
+       más fácil de usar con una mano y el teclado no tapa los botones. */
+    @media (max-width: 640px) {
+        .modal { align-items:flex-end; padding:0; }
+        .modal-panel { width:100%; max-height:92dvh; max-height:92vh; border-radius:1.25rem 1.25rem 0 0; transform: translateY(100%); }
+        .modal.active .modal-panel { transform:none; }
+        .modal-panel::before { content:""; display:block; width:36px; height:4px; border-radius:9999px; background:var(--line); margin:.65rem auto 0; flex-shrink:0; }
+        .modal-footer { flex-direction:column-reverse; padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+        .modal-footer .btn-primary { width:100%; }
+    }
 
     /* ---------- Cards ---------- */
     .card { background:var(--surface); border:1px solid var(--line); border-radius:1.25rem; box-shadow: var(--shadow-sm); transition: box-shadow .18s ease, border-color .18s ease; }
@@ -444,72 +466,74 @@
 
 <!-- ===================== MODAL: FERIA ===================== -->
 <div id="modal-feria" class="modal">
-    <div class="modal-panel w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 md:p-8">
-        <div class="flex items-center justify-between mb-5">
-            <div class="flex items-center gap-3">
+    <div class="modal-panel w-full max-w-2xl">
+        <div class="modal-header">
+            <div class="flex items-center gap-3 min-w-0">
                 <div class="modal-tag ferias"><i class="fas fa-calendar-days"></i></div>
-                <h3 id="modal-feria-titulo" class="font-display text-lg font-bold">Nueva feria</h3>
+                <h3 id="modal-feria-titulo" class="font-display text-lg font-bold truncate">Nueva feria</h3>
             </div>
-            <button type="button" data-close-modal="modal-feria" class="btn-icon bg-black/5 hover:bg-black/10"><i class="fas fa-xmark"></i></button>
+            <button type="button" data-close-modal="modal-feria" class="btn-icon bg-black/5 hover:bg-black/10 flex-shrink-0"><i class="fas fa-xmark"></i></button>
         </div>
 
-        <form id="form-feria" class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3.5">
+        <form id="form-feria" class="flex flex-col flex-1 min-h-0">
             <input type="hidden" id="feria-id">
 
-            <div class="md:col-span-2">
-                <label class="field-label">Título</label>
-                <input type="text" id="f-titulo" placeholder="Ej: Feria de verano" required class="field">
-            </div>
-
-            <div>
-                <label class="field-label">Día de la semana</label>
-                <input type="text" id="f-diaSemana" placeholder="Ej: Domingo" required class="field">
-            </div>
-            <div>
-                <label class="field-label">Mes</label>
-                <input type="text" id="f-mes" placeholder="Ej: Enero" required class="field">
-            </div>
-
-            <div>
-                <label class="field-label">Día n°</label>
-                <input type="text" id="f-diaNumero" placeholder="Ej: 11" required class="field">
-            </div>
-            <div>
-                <label class="field-label">Horario</label>
-                <input type="text" id="f-horario" placeholder="Desde 19:00 hs" required class="field">
-            </div>
-
-            <div>
-                <label class="field-label">Ubicación</label>
-                <input type="text" id="f-ubicacion" placeholder="Ubicación" required class="field">
-            </div>
-            <div>
-                <label class="field-label">Mapa (link embed, opcional)</label>
-                <input type="text" id="f-mapaEmbedUrl" placeholder="https://..." class="field">
-            </div>
-
-            <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-[auto,1fr] gap-4 items-start pt-1">
-                <div>
-                    <label class="field-label">Flyer</label>
-                    <div class="flex items-center gap-3">
-                        <img id="f-flyer-preview" class="hidden h-14 w-14 rounded-xl object-cover border flex-shrink-0" style="border-color:var(--line)">
-                        <label class="field flex items-center justify-center gap-2 cursor-pointer text-ink-soft hover:text-ink hover:border-yellow-comunidad !w-auto whitespace-nowrap">
-                            <i class="fas fa-image"></i> <span id="f-flyer-label">Elegir imagen</span>
-                            <input type="file" id="f-flyer-file" accept="image/*" class="hidden">
-                        </label>
-                    </div>
-                    <input type="hidden" id="f-flyerUrl">
+            <div class="modal-body grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3.5">
+                <div class="md:col-span-2">
+                    <label class="field-label">Título</label>
+                    <input type="text" id="f-titulo" placeholder="Ej: Feria de verano" required class="field">
                 </div>
 
-                <label class="flex items-center gap-3 text-sm font-semibold rounded-xl p-3.5 cursor-pointer h-full" style="background:var(--canvas); border:1px solid var(--line);">
-                    <input type="checkbox" id="f-activa" class="w-4 h-4 accent-black flex-shrink-0">
-                    <span>Mostrar en la web<br><span class="font-normal text-xs text-ink-faint">Podés activar varias a la vez: se muestran todas, apiladas.</span></span>
-                </label>
+                <div>
+                    <label class="field-label">Día de la semana</label>
+                    <input type="text" id="f-diaSemana" placeholder="Ej: Domingo" required class="field">
+                </div>
+                <div>
+                    <label class="field-label">Mes</label>
+                    <input type="text" id="f-mes" placeholder="Ej: Enero" required class="field">
+                </div>
+
+                <div>
+                    <label class="field-label">Día n°</label>
+                    <input type="text" id="f-diaNumero" placeholder="Ej: 11" required class="field">
+                </div>
+                <div>
+                    <label class="field-label">Horario</label>
+                    <input type="text" id="f-horario" placeholder="Desde 19:00 hs" required class="field">
+                </div>
+
+                <div>
+                    <label class="field-label">Ubicación</label>
+                    <input type="text" id="f-ubicacion" placeholder="Ubicación" required class="field">
+                </div>
+                <div>
+                    <label class="field-label">Mapa (link embed, opcional)</label>
+                    <input type="text" id="f-mapaEmbedUrl" placeholder="https://..." class="field">
+                </div>
+
+                <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-[auto,1fr] gap-4 items-start pt-1">
+                    <div>
+                        <label class="field-label">Flyer</label>
+                        <div class="flex items-center gap-3">
+                            <img id="f-flyer-preview" class="hidden h-14 w-14 rounded-xl object-cover border flex-shrink-0" style="border-color:var(--line)">
+                            <label class="field flex items-center justify-center gap-2 cursor-pointer text-ink-soft hover:text-ink hover:border-yellow-comunidad !w-auto whitespace-nowrap">
+                                <i class="fas fa-image"></i> <span id="f-flyer-label">Elegir imagen</span>
+                                <input type="file" id="f-flyer-file" accept="image/*" class="hidden">
+                            </label>
+                        </div>
+                        <input type="hidden" id="f-flyerUrl">
+                    </div>
+
+                    <label class="flex items-center gap-3 text-sm font-semibold rounded-xl p-3.5 cursor-pointer h-full" style="background:var(--canvas); border:1px solid var(--line);">
+                        <input type="checkbox" id="f-activa" class="w-4 h-4 accent-black flex-shrink-0">
+                        <span>Mostrar en la web<br><span class="font-normal text-xs text-ink-faint">Podés activar varias a la vez: se muestran todas, apiladas.</span></span>
+                    </label>
+                </div>
             </div>
 
-            <div class="md:col-span-2 flex gap-3 pt-2">
+            <div class="modal-footer">
                 <button type="submit" id="btn-guardar-feria" class="btn-primary flex-1">Guardar feria</button>
-                <button type="button" data-close-modal="modal-feria" class="text-ink-soft font-semibold px-6 py-3 text-sm hover:text-ink">Cancelar</button>
+                <button type="button" data-close-modal="modal-feria" class="text-ink-soft font-semibold px-6 py-3 text-sm hover:text-ink text-center">Cancelar</button>
             </div>
         </form>
     </div>
@@ -517,72 +541,78 @@
 
 <!-- ===================== MODAL: EMPRENDEDOR ===================== -->
 <div id="modal-emprendedor" class="modal">
-    <div class="modal-panel w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 md:p-8">
-        <div class="flex items-center justify-between mb-5">
-            <div class="flex items-center gap-3">
+    <div class="modal-panel w-full max-w-2xl">
+        <div class="modal-header">
+            <div class="flex items-center gap-3 min-w-0">
                 <div class="modal-tag emprendedores"><i class="fas fa-store"></i></div>
-                <h3 id="modal-emprendedor-titulo" class="font-display text-lg font-bold">Nuevo emprendedor</h3>
+                <h3 id="modal-emprendedor-titulo" class="font-display text-lg font-bold truncate">Nuevo emprendedor</h3>
             </div>
-            <button type="button" data-close-modal="modal-emprendedor" class="btn-icon bg-black/5 hover:bg-black/10"><i class="fas fa-xmark"></i></button>
+            <button type="button" data-close-modal="modal-emprendedor" class="btn-icon bg-black/5 hover:bg-black/10 flex-shrink-0"><i class="fas fa-xmark"></i></button>
         </div>
 
-        <form id="form-emprendedor" class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3.5">
+        <form id="form-emprendedor" class="flex flex-col flex-1 min-h-0">
             <input type="hidden" id="e-id">
 
-            <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-[1fr,auto] gap-4">
+            <div class="modal-body grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3.5">
+                <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-[1fr,auto] gap-4">
+                    <div>
+                        <label class="field-label">Nombre del emprendimiento</label>
+                        <input type="text" id="e-nombre" placeholder="Nombre del emprendimiento" required class="field">
+                    </div>
+                    <div class="w-full md:w-32">
+                        <label class="field-label">Orden</label>
+                        <input type="number" id="e-orden" placeholder="0" value="0" class="field">
+                    </div>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="field-label">Categoría</label>
+                    <input type="text" id="e-categoria" placeholder="Ej: Maquillaje" class="field">
+                </div>
+
                 <div>
-                    <label class="field-label">Nombre del emprendimiento</label>
-                    <input type="text" id="e-nombre" placeholder="Nombre del emprendimiento" required class="field">
+                    <label class="field-label">Instagram (opcional)</label>
+                    <input type="text" id="e-instagram" placeholder="@usuario o link completo" class="field">
                 </div>
-                <div class="w-full md:w-32">
-                    <label class="field-label">Orden</label>
-                    <input type="number" id="e-orden" placeholder="0" value="0" class="field">
+                <div>
+                    <label class="field-label">WhatsApp (opcional)</label>
+                    <input type="text" id="e-whatsapp" placeholder="Ej: 3645123456" class="field">
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="field-label">Página web (opcional)</label>
+                    <input type="url" id="e-web" placeholder="https://..." class="field">
+                </div>
+                <p class="md:col-span-2 text-ink-faint text-xs -mt-2">Para WhatsApp, poné el número con código de área, sin espacios ni guiones. Si no tiene alguno de estos datos, dejalo vacío.</p>
+
+                <div class="md:col-span-2">
+                    <label class="field-label">Testimonio (opcional)</label>
+                    <textarea id="e-testimonio" placeholder='Ej: "Gracias a la Comunidad Emprendedora mi marca llegó a mucha más gente en Villa Ángela."' class="field h-16 resize-none"></textarea>
+                    <p class="text-ink-faint text-xs mt-1.5">Si lo completás, aparece en "Lo que dicen nuestros emprendedores".</p>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="field-label">Logo</label>
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                        <div class="flex items-center gap-3">
+                            <img id="e-logo-preview" class="hidden h-12 w-12 rounded-full object-cover border flex-shrink-0" style="border-color:var(--line)">
+                            <label class="field flex items-center justify-center gap-2 cursor-pointer text-ink-soft hover:text-ink hover:border-yellow-comunidad !w-auto whitespace-nowrap">
+                                <i class="fas fa-image"></i> <span id="e-logo-label">Elegir imagen</span>
+                                <input type="file" id="e-logo-file" accept="image/*" class="hidden">
+                            </label>
+                        </div>
+                        <div class="flex items-center gap-2 flex-1">
+                            <span class="text-ink-faint text-xs font-semibold flex-shrink-0">o</span>
+                            <input type="url" id="e-logo-link" placeholder="Pegar link de la imagen" class="field flex-1">
+                        </div>
+                    </div>
+                    <input type="hidden" id="e-logoUrl">
                 </div>
             </div>
 
-            <div class="md:col-span-2">
-                <label class="field-label">Categoría</label>
-                <input type="text" id="e-categoria" placeholder="Ej: Maquillaje" class="field">
-            </div>
-
-            <div>
-                <label class="field-label">Instagram (opcional)</label>
-                <input type="text" id="e-instagram" placeholder="@usuario o link completo" class="field">
-            </div>
-            <div>
-                <label class="field-label">WhatsApp (opcional)</label>
-                <input type="text" id="e-whatsapp" placeholder="Ej: 3645123456" class="field">
-            </div>
-
-            <div class="md:col-span-2">
-                <label class="field-label">Página web (opcional)</label>
-                <input type="url" id="e-web" placeholder="https://..." class="field">
-            </div>
-            <p class="md:col-span-2 text-ink-faint text-xs -mt-2">Para WhatsApp, poné el número con código de área, sin espacios ni guiones. Si no tiene alguno de estos datos, dejalo vacío.</p>
-
-            <div class="md:col-span-2">
-                <label class="field-label">Testimonio (opcional)</label>
-                <textarea id="e-testimonio" placeholder='Ej: "Gracias a la Comunidad Emprendedora mi marca llegó a mucha más gente en Villa Ángela."' class="field h-16 resize-none"></textarea>
-                <p class="text-ink-faint text-xs mt-1.5">Si lo completás, aparece en "Lo que dicen nuestros emprendedores".</p>
-            </div>
-
-            <div class="md:col-span-2">
-                <label class="field-label">Logo</label>
-                <div class="flex items-center gap-3 flex-wrap">
-                    <img id="e-logo-preview" class="hidden h-12 w-12 rounded-full object-cover border flex-shrink-0" style="border-color:var(--line)">
-                    <label class="field flex items-center justify-center gap-2 cursor-pointer text-ink-soft hover:text-ink hover:border-yellow-comunidad !w-auto whitespace-nowrap">
-                        <i class="fas fa-image"></i> <span id="e-logo-label">Elegir imagen</span>
-                        <input type="file" id="e-logo-file" accept="image/*" class="hidden">
-                    </label>
-                    <span class="text-ink-faint text-xs font-semibold">o</span>
-                    <input type="url" id="e-logo-link" placeholder="Pegar link de la imagen" class="field flex-1 min-w-[160px] !w-auto">
-                </div>
-                <input type="hidden" id="e-logoUrl">
-            </div>
-
-            <div class="md:col-span-2 flex gap-3 pt-2">
+            <div class="modal-footer">
                 <button type="submit" id="btn-guardar-emprendedor" class="btn-primary flex-1">Guardar emprendedor</button>
-                <button type="button" data-close-modal="modal-emprendedor" class="text-ink-soft font-semibold px-6 py-3 text-sm hover:text-ink">Cancelar</button>
+                <button type="button" data-close-modal="modal-emprendedor" class="text-ink-soft font-semibold px-6 py-3 text-sm hover:text-ink text-center">Cancelar</button>
             </div>
         </form>
     </div>
@@ -590,73 +620,79 @@
 
 <!-- ===================== MODAL: COMERCIO ===================== -->
 <div id="modal-comercio" class="modal">
-    <div class="modal-panel w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 md:p-8">
-        <div class="flex items-center justify-between mb-5">
-            <div class="flex items-center gap-3">
+    <div class="modal-panel w-full max-w-2xl">
+        <div class="modal-header">
+            <div class="flex items-center gap-3 min-w-0">
                 <div class="modal-tag comercios"><i class="fas fa-shop"></i></div>
-                <h3 id="modal-comercio-titulo" class="font-display text-lg font-bold">Nuevo comercio</h3>
+                <h3 id="modal-comercio-titulo" class="font-display text-lg font-bold truncate">Nuevo comercio</h3>
             </div>
-            <button type="button" data-close-modal="modal-comercio" class="btn-icon bg-black/5 hover:bg-black/10"><i class="fas fa-xmark"></i></button>
+            <button type="button" data-close-modal="modal-comercio" class="btn-icon bg-black/5 hover:bg-black/10 flex-shrink-0"><i class="fas fa-xmark"></i></button>
         </div>
 
-        <form id="form-comercio" class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3.5">
+        <form id="form-comercio" class="flex flex-col flex-1 min-h-0">
             <input type="hidden" id="c-id">
 
-            <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-[1fr,auto] gap-4">
+            <div class="modal-body grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3.5">
+                <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-[1fr,auto] gap-4">
+                    <div>
+                        <label class="field-label">Nombre del comercio</label>
+                        <input type="text" id="c-nombre" placeholder="Nombre del comercio" required class="field">
+                    </div>
+                    <div class="w-full md:w-32">
+                        <label class="field-label">Orden</label>
+                        <input type="number" id="c-orden" placeholder="0" value="0" class="field">
+                    </div>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="field-label">Categoría</label>
+                    <input type="text" id="c-categoria" placeholder="Ej: Indumentaria" class="field">
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="field-label">Logo</label>
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                        <div class="flex items-center gap-3">
+                            <img id="c-logo-preview" class="hidden h-12 w-12 rounded-full object-cover border flex-shrink-0" style="border-color:var(--line)">
+                            <label class="field flex items-center justify-center gap-2 cursor-pointer text-ink-soft hover:text-ink hover:border-yellow-comunidad !w-auto whitespace-nowrap">
+                                <i class="fas fa-image"></i> <span id="c-logo-label">Elegir imagen</span>
+                                <input type="file" id="c-logo-file" accept="image/*" class="hidden">
+                            </label>
+                        </div>
+                        <div class="flex items-center gap-2 flex-1">
+                            <span class="text-ink-faint text-xs font-semibold flex-shrink-0">o</span>
+                            <input type="url" id="c-logo-link" placeholder="Pegar link de la imagen" class="field flex-1">
+                        </div>
+                    </div>
+                    <input type="hidden" id="c-logoUrl">
+                </div>
+
                 <div>
-                    <label class="field-label">Nombre del comercio</label>
-                    <input type="text" id="c-nombre" placeholder="Nombre del comercio" required class="field">
+                    <label class="field-label">Instagram (opcional)</label>
+                    <input type="text" id="c-instagram" placeholder="@usuario o link completo" class="field">
                 </div>
-                <div class="w-full md:w-32">
-                    <label class="field-label">Orden</label>
-                    <input type="number" id="c-orden" placeholder="0" value="0" class="field">
+                <div>
+                    <label class="field-label">WhatsApp (opcional)</label>
+                    <input type="text" id="c-whatsapp" placeholder="Ej: 3645123456" class="field">
+                </div>
+                <p class="md:col-span-2 text-ink-faint text-xs -mt-2">Para WhatsApp, poné el número con código de área, sin espacios ni guiones. Si el comercio no tiene, dejalo vacío.</p>
+
+                <div class="md:col-span-2">
+                    <label class="field-label">Ubicación (opcional)</label>
+                    <input type="text" id="c-ubicacion" placeholder="Ej: Av. San Martín 123, Villa Ángela" class="field">
+                    <p class="text-ink-faint text-xs mt-1.5">Se muestra en la web con un botón "Cómo llegar" hacia Google Maps.</p>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="field-label">Descuento para emprendedores (opcional)</label>
+                    <textarea id="c-descuento" placeholder='Ej: "15% de descuento todos los martes y jueves presentando el carnet de emprendedor."' class="field h-16 resize-none"></textarea>
+                    <p class="text-ink-faint text-xs mt-1.5">Contá el porcentaje, qué días aplica y cualquier condición. Si lo dejás vacío, no se muestra.</p>
                 </div>
             </div>
 
-            <div class="md:col-span-2">
-                <label class="field-label">Categoría</label>
-                <input type="text" id="c-categoria" placeholder="Ej: Indumentaria" class="field">
-            </div>
-
-            <div class="md:col-span-2">
-                <label class="field-label">Logo</label>
-                <div class="flex items-center gap-3 flex-wrap">
-                    <img id="c-logo-preview" class="hidden h-12 w-12 rounded-full object-cover border flex-shrink-0" style="border-color:var(--line)">
-                    <label class="field flex items-center justify-center gap-2 cursor-pointer text-ink-soft hover:text-ink hover:border-yellow-comunidad !w-auto whitespace-nowrap">
-                        <i class="fas fa-image"></i> <span id="c-logo-label">Elegir imagen</span>
-                        <input type="file" id="c-logo-file" accept="image/*" class="hidden">
-                    </label>
-                    <span class="text-ink-faint text-xs font-semibold">o</span>
-                    <input type="url" id="c-logo-link" placeholder="Pegar link de la imagen" class="field flex-1 min-w-[160px] !w-auto">
-                </div>
-                <input type="hidden" id="c-logoUrl">
-            </div>
-
-            <div>
-                <label class="field-label">Instagram (opcional)</label>
-                <input type="text" id="c-instagram" placeholder="@usuario o link completo" class="field">
-            </div>
-            <div>
-                <label class="field-label">WhatsApp (opcional)</label>
-                <input type="text" id="c-whatsapp" placeholder="Ej: 3645123456" class="field">
-            </div>
-            <p class="md:col-span-2 text-ink-faint text-xs -mt-2">Para WhatsApp, poné el número con código de área, sin espacios ni guiones. Si el comercio no tiene, dejalo vacío.</p>
-
-            <div class="md:col-span-2">
-                <label class="field-label">Ubicación (opcional)</label>
-                <input type="text" id="c-ubicacion" placeholder="Ej: Av. San Martín 123, Villa Ángela" class="field">
-                <p class="text-ink-faint text-xs mt-1.5">Se muestra en la web con un botón "Cómo llegar" hacia Google Maps.</p>
-            </div>
-
-            <div class="md:col-span-2">
-                <label class="field-label">Descuento para emprendedores (opcional)</label>
-                <textarea id="c-descuento" placeholder='Ej: "15% de descuento todos los martes y jueves presentando el carnet de emprendedor."' class="field h-16 resize-none"></textarea>
-                <p class="text-ink-faint text-xs mt-1.5">Contá el porcentaje, qué días aplica y cualquier condición. Si lo dejás vacío, no se muestra.</p>
-            </div>
-
-            <div class="md:col-span-2 flex gap-3 pt-2">
+            <div class="modal-footer">
                 <button type="submit" id="btn-guardar-comercio" class="btn-primary flex-1">Guardar comercio</button>
-                <button type="button" data-close-modal="modal-comercio" class="text-ink-soft font-semibold px-6 py-3 text-sm hover:text-ink">Cancelar</button>
+                <button type="button" data-close-modal="modal-comercio" class="text-ink-soft font-semibold px-6 py-3 text-sm hover:text-ink text-center">Cancelar</button>
             </div>
         </form>
     </div>
