@@ -3,7 +3,7 @@
 // Todo lo que va a Firebase, Cloudinary, Google Fonts, etc. se deja pasar
 // directo a la red: los datos del panel siempre tienen que estar frescos.
 
-const CACHE_NAME = 'ce-admin-cache-v35';
+const CACHE_NAME = 'ce-admin-cache-v5';
 
 const APP_SHELL = [
     '/admin',
