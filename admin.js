@@ -639,6 +639,7 @@ document.getElementById('btn-nuevo-comercio').addEventListener('click', () => {
 function resetFormComercio() {
     formComercio.reset();
     document.getElementById('c-id').value = "";
+    document.getElementById('c-ubicacion').value = "";
     document.getElementById('c-descuento').value = "";
     document.getElementById('c-logoUrl').value = "";
     document.getElementById('c-logo-link').value = "";
@@ -685,6 +686,7 @@ formComercio.addEventListener('submit', async (e) => {
         nombre: document.getElementById('c-nombre').value,
         categoria: document.getElementById('c-categoria').value,
         orden: Number(document.getElementById('c-orden').value) || 0,
+        ubicacion: document.getElementById('c-ubicacion').value.trim(),
         descuento: document.getElementById('c-descuento').value,
         instagram: document.getElementById('c-instagram').value.trim(),
         whatsapp: document.getElementById('c-whatsapp').value.trim(),
@@ -796,6 +798,7 @@ async function editarComercio(id) {
     document.getElementById('c-nombre').value = c.nombre || '';
     document.getElementById('c-categoria').value = c.categoria || '';
     document.getElementById('c-orden').value = c.orden || 0;
+    document.getElementById('c-ubicacion').value = c.ubicacion || '';
     document.getElementById('c-descuento').value = c.descuento || '';
     document.getElementById('c-instagram').value = c.instagram || '';
     document.getElementById('c-whatsapp').value = c.whatsapp || '';
