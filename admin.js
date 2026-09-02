@@ -54,11 +54,55 @@ function closeModal(id) {
 document.querySelectorAll('[data-close-modal]').forEach(btn => {
     btn.addEventListener('click', () => closeModal(btn.dataset.closeModal));
 });
-document.querySelectorAll('.modal').forEach(modal => {
-    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(modal.id); });
-});
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') document.querySelectorAll('.modal.active').forEach(m => closeModal(m.id));
+});
+
+/* ---------- MOSTRAR/OCULTAR CONTRASEÑA (login) ---------- */
+
+const togglePasswordBtn = document.getElementById('toggle-password');
+if (togglePasswordBtn) {
+    togglePasswordBtn.addEventListener('click', () => {
+        const input = document.getElementById('login-password');
+        const esOculta = input.type === 'password';
+        input.type = esOculta ? 'text' : 'password';
+        togglePasswordBtn.classList.toggle('fa-eye', !esOculta);
+        togglePasswordBtn.classList.toggle('fa-eye-slash', esOculta);
+        togglePasswordBtn.title = esOculta ? 'Ocultar contraseña' : 'Mostrar contraseña';
+    });
+}
+
+/* ---------- INSTALAR PWA ---------- */
+
+let __deferredInstallPrompt = null;
+const btnInstalarApp = document.getElementById('btn-install-app');
+
+function appYaInstalada() {
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    __deferredInstallPrompt = e;
+    if (btnInstalarApp && !appYaInstalada()) btnInstalarApp.classList.add('show');
+});
+
+if (btnInstalarApp) {
+    btnInstalarApp.addEventListener('click', async () => {
+        if (!__deferredInstallPrompt) return;
+        btnInstalarApp.disabled = true;
+        __deferredInstallPrompt.prompt();
+        await __deferredInstallPrompt.userChoice;
+        __deferredInstallPrompt = null;
+        btnInstalarApp.classList.remove('show');
+        btnInstalarApp.disabled = false;
+    });
+}
+
+window.addEventListener('appinstalled', () => {
+    if (btnInstalarApp) btnInstalarApp.classList.remove('show');
+    __deferredInstallPrompt = null;
+    mostrarToast('App instalada correctamente');
 });
 
 /* ---------- CONFIRMACIÓN DE BORRADO (genérica) ---------- */
@@ -236,6 +280,11 @@ formFeria.addEventListener('submit', async (e) => {
     }
 });
 
+// Cache en memoria del último listado que trajo Firestore. Se usa para que
+// abrir "Editar" sea instantáneo (sin esperar un nuevo viaje a la base de
+// datos): los datos ya los tenemos acá porque se acaban de listar.
+let __feriasDocs = [];
+
 async function cargarFerias(mostrarSkeleton = true) {
     const lista = document.getElementById('lista-ferias');
     const stats = document.getElementById('stats-ferias');
@@ -244,6 +293,7 @@ async function cargarFerias(mostrarSkeleton = true) {
     }
     try {
         const snap = await db.collection('ferias').orderBy('createdAt', 'desc').get();
+        __feriasDocs = snap.docs.map(doc => ({ id: doc.id, data: doc.data() }));
         const total = snap.size;
         const activas = snap.docs.filter(d => d.data().activa);
 
@@ -283,7 +333,7 @@ async function cargarFerias(mostrarSkeleton = true) {
             </div>`;
         }).join('');
 
-        lista.querySelectorAll('[data-editar-feria]').forEach(b => b.addEventListener('click', () => editarFeria(b.dataset.editarFeria)));
+        lista.querySelectorAll('[data-editar-feria]').forEach(b => b.addEventListener('click', () => editarFeria(b.dataset.editarFeria, b)));
         lista.querySelectorAll('[data-eliminar-feria]').forEach(b => b.addEventListener('click', () => {
             pedirConfirmacion({
                 titulo: `¿Eliminar "${b.dataset.titulo}"?`,
@@ -297,9 +347,27 @@ async function cargarFerias(mostrarSkeleton = true) {
     }
 }
 
-async function editarFeria(id) {
-    const doc = await db.collection('ferias').doc(id).get();
-    const f = doc.data();
+async function editarFeria(id, btn) {
+    // Ya tenemos los datos en __feriasDocs porque se acaban de listar, así
+    // que evitamos un viaje extra a Firestore y el modal abre al instante.
+    // Si por algo no está en la cache (caso raro), lo buscamos y mientras
+    // tanto mostramos un loader en el botón para que quede claro qué pasa.
+    let f = __feriasDocs.find(d => d.id === id)?.data;
+    const iconoOriginal = btn ? btn.innerHTML : null;
+
+    if (!f) {
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin text-xs"></i>'; }
+        try {
+            const doc = await db.collection('ferias').doc(id).get();
+            f = doc.data();
+        } catch (err) {
+            mostrarToast("Error al abrir la feria", true);
+            if (btn) { btn.disabled = false; btn.innerHTML = iconoOriginal; }
+            return;
+        }
+        if (btn) { btn.disabled = false; btn.innerHTML = iconoOriginal; }
+    }
+
     document.getElementById('feria-id').value = id;
     document.getElementById('f-titulo').value = f.titulo || '';
     document.getElementById('f-diaSemana').value = f.diaSemana || '';
@@ -312,6 +380,8 @@ async function editarFeria(id) {
     document.getElementById('f-activa').checked = !!f.activa;
 
     const preview = document.getElementById('f-flyer-preview');
+    preview.classList.add('hidden');
+    document.getElementById('f-flyer-label').textContent = "Elegir imagen";
     if (f.flyerUrl) {
         preview.src = f.flyerUrl;
         preview.classList.remove('hidden');
@@ -573,7 +643,7 @@ function renderListaEmprendedores() {
         </div>`;
     }).join('');
 
-    lista.querySelectorAll('[data-editar-emprendedor]').forEach(b => b.addEventListener('click', () => editarEmprendedor(b.dataset.editarEmprendedor)));
+    lista.querySelectorAll('[data-editar-emprendedor]').forEach(b => b.addEventListener('click', () => editarEmprendedor(b.dataset.editarEmprendedor, b)));
     lista.querySelectorAll('[data-eliminar-emprendedor]').forEach(b => b.addEventListener('click', () => {
         pedirConfirmacion({
             titulo: `¿Eliminar "${b.dataset.nombre}"?`,
@@ -585,9 +655,27 @@ function renderListaEmprendedores() {
 
 document.getElementById('buscar-emprendedores').addEventListener('input', renderListaEmprendedores);
 
-async function editarEmprendedor(id) {
-    const doc = await db.collection('emprendedores').doc(id).get();
-    const e = doc.data();
+async function editarEmprendedor(id, btn) {
+    // Ya tenemos los datos en __emprendedoresDocs porque se acaban de
+    // listar, así que evitamos un viaje extra a Firestore y el modal abre
+    // al instante. Si por algo no está en la cache, lo buscamos y mientras
+    // tanto mostramos un loader en el botón para que quede claro qué pasa.
+    let e = __emprendedoresDocs.find(d => d.id === id)?.data;
+    const iconoOriginal = btn ? btn.innerHTML : null;
+
+    if (!e) {
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin text-xs"></i>'; }
+        try {
+            const doc = await db.collection('emprendedores').doc(id).get();
+            e = doc.data();
+        } catch (err) {
+            mostrarToast("Error al abrir el emprendedor", true);
+            if (btn) { btn.disabled = false; btn.innerHTML = iconoOriginal; }
+            return;
+        }
+        if (btn) { btn.disabled = false; btn.innerHTML = iconoOriginal; }
+    }
+
     document.getElementById('e-id').value = id;
     document.getElementById('e-nombre').value = e.nombre || '';
     document.getElementById('e-categoria').value = e.categoria || '';
@@ -600,6 +688,8 @@ async function editarEmprendedor(id) {
     document.getElementById('e-logo-link').value = e.logoUrl || '';
 
     const preview = document.getElementById('e-logo-preview');
+    preview.classList.add('hidden');
+    document.getElementById('e-logo-label').textContent = "Elegir imagen";
     if (e.logoUrl) {
         preview.src = e.logoUrl;
         preview.classList.remove('hidden');
@@ -779,7 +869,7 @@ function renderListaComercios() {
         </div>`;
     }).join('');
 
-    lista.querySelectorAll('[data-editar-comercio]').forEach(b => b.addEventListener('click', () => editarComercio(b.dataset.editarComercio)));
+    lista.querySelectorAll('[data-editar-comercio]').forEach(b => b.addEventListener('click', () => editarComercio(b.dataset.editarComercio, b)));
     lista.querySelectorAll('[data-eliminar-comercio]').forEach(b => b.addEventListener('click', () => {
         pedirConfirmacion({
             titulo: `¿Eliminar "${b.dataset.nombre}"?`,
@@ -791,9 +881,27 @@ function renderListaComercios() {
 
 document.getElementById('buscar-comercios').addEventListener('input', renderListaComercios);
 
-async function editarComercio(id) {
-    const doc = await db.collection('comercios').doc(id).get();
-    const c = doc.data();
+async function editarComercio(id, btn) {
+    // Ya tenemos los datos en __comerciosDocs porque se acaban de listar,
+    // así que evitamos un viaje extra a Firestore y el modal abre al
+    // instante. Si por algo no está en la cache, lo buscamos y mientras
+    // tanto mostramos un loader en el botón para que quede claro qué pasa.
+    let c = __comerciosDocs.find(d => d.id === id)?.data;
+    const iconoOriginal = btn ? btn.innerHTML : null;
+
+    if (!c) {
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin text-xs"></i>'; }
+        try {
+            const doc = await db.collection('comercios').doc(id).get();
+            c = doc.data();
+        } catch (err) {
+            mostrarToast("Error al abrir el comercio", true);
+            if (btn) { btn.disabled = false; btn.innerHTML = iconoOriginal; }
+            return;
+        }
+        if (btn) { btn.disabled = false; btn.innerHTML = iconoOriginal; }
+    }
+
     document.getElementById('c-id').value = id;
     document.getElementById('c-nombre').value = c.nombre || '';
     document.getElementById('c-categoria').value = c.categoria || '';
@@ -806,6 +914,8 @@ async function editarComercio(id) {
     document.getElementById('c-logo-link').value = c.logoUrl || '';
 
     const preview = document.getElementById('c-logo-preview');
+    preview.classList.add('hidden');
+    document.getElementById('c-logo-label').textContent = "Elegir imagen";
     if (c.logoUrl) {
         preview.src = c.logoUrl;
         preview.classList.remove('hidden');
