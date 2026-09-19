@@ -144,6 +144,7 @@ auth.onAuthStateChanged(user => {
         document.getElementById('login-user-email').textContent = user.email;
         cargarFerias();
         cargarGaleria();
+        cargarCursos();
         cargarEmprendedores();
         cargarComercios();
         cargarPostulaciones();
@@ -479,6 +480,286 @@ async function eliminarFoto(id) {
         await db.collection('galeria').doc(id).delete();
         mostrarToast("Foto eliminada");
         cargarGaleria(false);
+    } catch (err) {
+        mostrarToast("Error al eliminar", true);
+    }
+}
+
+/* =========================================================
+   CURSOS Y CAPACITACIONES (ya realizados)
+   Cada curso tiene varias fotos, un nombre, una descripción y
+   opcionalmente cuándo se hizo. Se muestran en cursos.html.
+   ========================================================= */
+
+const formCurso = document.getElementById('form-curso');
+let __fotosCurso = [];            // URLs de las fotos del curso que se está editando
+let __subiendoFotosCurso = false; // true mientras hay subidas en curso
+let __tokenFormCurso = 0;         // cambia al resetear el form, para ignorar subidas viejas
+
+// Los cursos guardados con la versión anterior tenían una sola imagen en
+// "imagenUrl"; los tratamos como un curso con una foto.
+function fotosDeCurso(c) {
+    if (Array.isArray(c.fotos) && c.fotos.length) return c.fotos.filter(Boolean);
+    return c.imagenUrl ? [c.imagenUrl] : [];
+}
+
+document.getElementById('btn-nuevo-curso').addEventListener('click', () => {
+    resetFormCurso();
+    document.getElementById('modal-curso-titulo').textContent = "Nuevo curso";
+    document.getElementById('btn-guardar-curso').textContent = "Guardar curso";
+    openModal('modal-curso');
+});
+
+function resetFormCurso() {
+    formCurso.reset();
+    __tokenFormCurso++;
+    __fotosCurso = [];
+    document.getElementById('cu-id').value = "";
+    document.getElementById('cu-foto-link').value = "";
+    document.getElementById('cu-fotos-label').textContent = "Agregar fotos";
+    renderFotosCurso();
+}
+
+function renderFotosCurso() {
+    const cont = document.getElementById('cu-fotos-lista');
+    cont.classList.toggle('hidden', !__fotosCurso.length);
+    cont.innerHTML = __fotosCurso.map((url, i) => `
+        <div class="relative rounded-xl overflow-hidden border" style="border-color:var(--line)">
+            <img src="${escaparHtml(url)}" class="w-full h-24 object-cover bg-slate-100">
+            ${i === 0 ? `<span class="absolute bottom-1.5 left-1.5 bg-black/75 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded-full">Portada</span>` : ''}
+            <div class="absolute top-1.5 right-1.5 flex gap-1.5">
+                ${i !== 0 ? `<button type="button" data-portada-foto="${i}" title="Usar como portada" class="w-7 h-7 rounded-full bg-black/70 text-white hover:bg-yellow-comunidad hover:text-black flex items-center justify-center"><i class="fas fa-star text-[10px]"></i></button>` : ''}
+                <button type="button" data-quitar-foto="${i}" title="Quitar foto" class="w-7 h-7 rounded-full bg-black/70 text-white hover:bg-red-600 flex items-center justify-center"><i class="fas fa-xmark text-xs"></i></button>
+            </div>
+        </div>`).join('');
+}
+
+document.getElementById('cu-fotos-lista').addEventListener('click', (e) => {
+    const quitar = e.target.closest('[data-quitar-foto]');
+    const portada = e.target.closest('[data-portada-foto]');
+    if (quitar) {
+        __fotosCurso.splice(Number(quitar.dataset.quitarFoto), 1);
+        renderFotosCurso();
+    } else if (portada) {
+        const [foto] = __fotosCurso.splice(Number(portada.dataset.portadaFoto), 1);
+        __fotosCurso.unshift(foto);
+        renderFotosCurso();
+    }
+});
+
+document.getElementById('cu-fotos-file').addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+
+    const label = document.getElementById('cu-fotos-label');
+    const token = __tokenFormCurso;
+    let subidas = 0;
+    // Mientras sube, bloqueamos el guardado: si no, el curso podría guardarse sin todas las fotos.
+    __subiendoFotosCurso = true;
+    try {
+        for (const file of files) {
+            label.textContent = `Subiendo ${subidas + 1} de ${files.length}...`;
+            const url = await subirImagenCloudinary(file);
+            if (token !== __tokenFormCurso) return; // se cerró/reseteó el formulario mientras subía
+            __fotosCurso.push(url);
+            subidas++;
+            renderFotosCurso();
+        }
+        mostrarToast(subidas > 1 ? "Fotos subidas" : "Foto subida");
+    } catch (err) {
+        console.error(err);
+        mostrarToast(subidas
+            ? `Se subieron ${subidas} de ${files.length} fotos. Agregá las que faltan.`
+            : "Error al subir las fotos", true);
+    } finally {
+        __subiendoFotosCurso = false;
+        if (token === __tokenFormCurso) label.textContent = "Agregar fotos";
+        e.target.value = "";
+    }
+});
+
+// Alternativa a subir archivos: pegar el link de una imagen ya alojada en otro lado.
+function agregarFotoCursoPorLink() {
+    const input = document.getElementById('cu-foto-link');
+    const url = input.value.trim();
+    if (!url) return;
+    __fotosCurso.push(url);
+    input.value = "";
+    renderFotosCurso();
+}
+document.getElementById('cu-foto-link').addEventListener('change', agregarFotoCursoPorLink);
+document.getElementById('cu-foto-link').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault(); // Enter dentro de un formulario lo enviaría
+        agregarFotoCursoPorLink();
+    }
+});
+
+formCurso.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (__subiendoFotosCurso) {
+        mostrarToast("Esperá a que terminen de subir las fotos", true);
+        return;
+    }
+    // Si quedó un link pegado sin confirmar, lo sumamos.
+    agregarFotoCursoPorLink();
+    if (!__fotosCurso.length) {
+        mostrarToast("Agregá al menos una foto", true);
+        return;
+    }
+
+    const id = document.getElementById('cu-id').value;
+    const btn = document.getElementById('btn-guardar-curso');
+    const data = {
+        titulo: document.getElementById('cu-titulo').value.trim(),
+        descripcion: document.getElementById('cu-descripcion').value.trim(),
+        fecha: document.getElementById('cu-fecha').value.trim(),
+        fotos: [...__fotosCurso],
+        orden: Number(document.getElementById('cu-orden').value) || 0,
+        visible: document.getElementById('cu-visible').checked
+    };
+
+    btn.disabled = true;
+    btn.textContent = "Guardando...";
+
+    try {
+        if (id) {
+            await db.collection('cursos').doc(id).update(data);
+        } else {
+            data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+            await db.collection('cursos').add(data);
+        }
+        mostrarToast("Curso guardado");
+        closeModal('modal-curso');
+        cargarCursos(false);
+    } catch (err) {
+        console.error(err);
+        mostrarToast("Error al guardar el curso", true);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Guardar curso";
+    }
+});
+
+// Cache del último listado, para que "Editar" abra al instante sin ir a Firestore.
+let __cursosDocs = [];
+
+// Mismo criterio que la página pública: primero "orden" (menor = antes) y,
+// a igual orden, el más nuevo primero. Se ordena acá para no necesitar índices.
+function ordenarCursos(docs) {
+    return docs.sort((a, b) => {
+        const oa = Number(a.data.orden) || 0;
+        const ob = Number(b.data.orden) || 0;
+        if (oa !== ob) return oa - ob;
+        const ta = a.data.createdAt?.toMillis?.() ?? 0;
+        const tb = b.data.createdAt?.toMillis?.() ?? 0;
+        return tb - ta;
+    });
+}
+
+async function cargarCursos(mostrarSkeleton = true) {
+    const lista = document.getElementById('lista-cursos');
+    const stats = document.getElementById('stats-cursos');
+    if (mostrarSkeleton) {
+        lista.innerHTML = `<div class="skeleton h-28"></div><div class="skeleton h-28"></div>`;
+    }
+    try {
+        const snap = await db.collection('cursos').get();
+        __cursosDocs = ordenarCursos(snap.docs.map(doc => ({ id: doc.id, data: doc.data() })));
+        const total = __cursosDocs.length;
+        const visibles = __cursosDocs.filter(({ data }) => data.visible !== false).length;
+
+        stats.innerHTML = `
+            ${statChip('fa-graduation-cap', total, total === 1 ? 'curso cargado' : 'cursos cargados')}
+            ${visibles
+                ? statChip('fa-circle-check', visibles, visibles === 1 ? 'curso visible en la web' : 'cursos visibles en la web', 'text-green-600')
+                : statChip('fa-triangle-exclamation', 'Ninguno', 'curso visible en la web', 'text-amber-600')}
+        `;
+
+        if (!total) {
+            lista.innerHTML = estadoVacio('fa-graduation-cap', 'Todavía no cargaste cursos', 'Creá el primero para que aparezca en la página de cursos.', 'md:col-span-2');
+            return;
+        }
+
+        lista.innerHTML = __cursosDocs.map(({ id, data: c }) => {
+            const visible = c.visible !== false;
+            const fotos = fotosDeCurso(c);
+            return `
+            <div class="card p-5 flex items-start gap-4">
+                ${fotos.length
+                    ? `<img src="${escaparHtml(fotos[0])}" class="w-20 h-20 rounded-xl object-cover bg-slate-100 flex-shrink-0">`
+                    : `<div class="w-20 h-20 rounded-xl bg-slate-100 text-slate-300 flex items-center justify-center flex-shrink-0 text-xl"><i class="fas fa-image"></i></div>`}
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <p class="font-bold">${escaparHtml(c.titulo)}</p>
+                        ${visible
+                            ? `<span class="bg-green-100 text-green-700 text-[10px] font-black uppercase px-2 py-0.5 rounded-full">Visible</span>`
+                            : `<span class="bg-slate-100 text-slate-500 text-[10px] font-black uppercase px-2 py-0.5 rounded-full">Oculto</span>`}
+                    </div>
+                    <p class="text-slate-400 text-xs mt-1 flex items-center gap-3 flex-wrap">
+                        <span><i class="fas fa-images w-3"></i> ${fotos.length} ${fotos.length === 1 ? 'foto' : 'fotos'}</span>
+                        ${c.fecha ? `<span><i class="fas fa-calendar w-3"></i> ${escaparHtml(c.fecha)}</span>` : ''}
+                    </p>
+                    <p class="text-slate-500 text-xs mt-1.5 line-clamp-2">${escaparHtml(c.descripcion)}</p>
+                </div>
+                <div class="flex gap-2 flex-shrink-0">
+                    <button data-editar-curso="${id}" class="btn-icon bg-slate-100 hover:bg-slate-200"><i class="fas fa-pen text-xs"></i></button>
+                    <button data-eliminar-curso="${id}" data-titulo="${escaparHtml(c.titulo)}" class="btn-icon bg-red-50 hover:bg-red-100 text-red-500"><i class="fas fa-trash text-xs"></i></button>
+                </div>
+            </div>`;
+        }).join('');
+
+        lista.querySelectorAll('[data-editar-curso]').forEach(b => b.addEventListener('click', () => editarCurso(b.dataset.editarCurso, b)));
+        lista.querySelectorAll('[data-eliminar-curso]').forEach(b => b.addEventListener('click', () => {
+            pedirConfirmacion({
+                titulo: `¿Eliminar "${b.dataset.titulo}"?`,
+                texto: "Este curso se va a quitar de la página pública de forma permanente.",
+                onConfirm: () => eliminarCurso(b.dataset.eliminarCurso)
+            });
+        }));
+    } catch (err) {
+        console.error(err);
+        lista.innerHTML = `<p class="text-red-500 text-sm col-span-full">Error al cargar los cursos.</p>`;
+    }
+}
+
+async function editarCurso(id, btn) {
+    let c = __cursosDocs.find(d => d.id === id)?.data;
+    const iconoOriginal = btn ? btn.innerHTML : null;
+
+    if (!c) {
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin text-xs"></i>'; }
+        try {
+            const doc = await db.collection('cursos').doc(id).get();
+            c = doc.data();
+        } catch (err) {
+            mostrarToast("Error al abrir el curso", true);
+            if (btn) { btn.disabled = false; btn.innerHTML = iconoOriginal; }
+            return;
+        }
+        if (btn) { btn.disabled = false; btn.innerHTML = iconoOriginal; }
+    }
+
+    resetFormCurso();
+    document.getElementById('cu-id').value = id;
+    document.getElementById('cu-titulo').value = c.titulo || '';
+    document.getElementById('cu-descripcion').value = c.descripcion || '';
+    document.getElementById('cu-fecha').value = c.fecha || '';
+    document.getElementById('cu-orden').value = c.orden || 0;
+    document.getElementById('cu-visible').checked = c.visible !== false;
+    __fotosCurso = [...fotosDeCurso(c)];
+    renderFotosCurso();
+
+    document.getElementById('modal-curso-titulo').textContent = "Editar curso";
+    document.getElementById('btn-guardar-curso').textContent = "Guardar cambios";
+    openModal('modal-curso');
+}
+
+async function eliminarCurso(id) {
+    try {
+        await db.collection('cursos').doc(id).delete();
+        mostrarToast("Curso eliminado");
+        cargarCursos(false);
     } catch (err) {
         mostrarToast("Error al eliminar", true);
     }
